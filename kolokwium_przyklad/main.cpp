@@ -10,6 +10,9 @@ public:
     pair<int,int> velocity;
     virtual ~Object()=default;
     virtual void Dzialaj()=0;
+    virtual void set(sf::VideoMode videomode)=0;
+    virtual void define()=0;
+    virtual void update(sf::Time elapsed, pair<float,float> mouse_position)=0;
 };
 
 class Bohater : public Object
@@ -18,7 +21,7 @@ public:
     // 94/80
     float x_p,y_p,x,y,xy=0;
     int points=100;
-    void set(sf::VideoMode videomode)
+    virtual void set(sf::VideoMode videomode)
     {
         this->setSize(sf::Vector2f(94,80));
         this->texture.loadFromFile("hero.png");
@@ -28,6 +31,14 @@ public:
         this->setOrigin(this->getSize().x/2,this->getSize().y/2);
         this->sprite.setOrigin(this->getSize().x/2,this->getSize().y/2);
         this->velocity=make_pair(400,400);
+    }
+    ~Bohater()
+    {
+
+    }
+    void define()
+    {
+
     }
     void movement(sf::Time elapsed, pair<float,float> mouse_position)
     {
@@ -125,18 +136,30 @@ class Bagno : public Object
     // 70/70
 public:
     float x,y,s=1;
+    Bagno(sf::VideoMode videomode)
+    {
+        this->setSize(sf::Vector2f(70,70));
+        this->texture.loadFromFile("swamp.jpg");
+        this->sprite.setTexture(this->texture);
+        this->define();
+    }
     void set(sf::VideoMode videomode)
     {
         this->setSize(sf::Vector2f(70,70));
         this->texture.loadFromFile("swamp.jpg");
         this->sprite.setTexture(this->texture);
+        this->define();
     }
-    void define()
+    void define() override
     {
         this->x=losuj().first;
         this->y=losuj().second;
         this->setPosition(this->x,this->y);
         this->sprite.setPosition(this->getPosition());
+    }
+    ~Bagno()
+    {
+
     }
     pair<int,int> losuj()
     {
@@ -146,11 +169,11 @@ public:
             return make_pair(x=rand()%830,y=rand()%530);
         }while(x>0 && x<94 && y>520 && y<600);
     }
-    void update()
+    void update(sf::Time elapsed, pair<float,float> mouse_position)
     {
         this->sprite.setPosition(this->getPosition());
     }
-    void Dzialaj() override
+    void Dzialaj()
     {
         this->s+=0.1;
         this->setScale(this->s,this->s);
@@ -164,11 +187,23 @@ class Potwor : public Object
 public:
     float x,y;
     int kierunek;
+    Potwor(sf::VideoMode videomode)
+    {
+        this->setSize(sf::Vector2f(50,50));
+        this->texture.loadFromFile("monster.png");
+        this->sprite.setTexture(this->texture);
+        this->define();
+    }
     void set(sf::VideoMode videomode)
     {
         this->setSize(sf::Vector2f(50,50));
         this->texture.loadFromFile("monster.png");
         this->sprite.setTexture(this->texture);
+        this->define();
+    }
+    ~Potwor()
+    {
+
     }
     void define()
     {
@@ -185,11 +220,11 @@ public:
             return make_pair(x=rand()%850,y=rand()%550);
         }while(x>0 && x<94 && y>520 && y<600);
     }
-    void update()
+    void update(sf::Time elapsed, pair<float,float> mouse_position)
     {
         this->sprite.setPosition(this->getPosition());
     }
-    void Dzialaj() override
+    void Dzialaj()
     {
         this->kierunek=rand()%4;
         if(kierunek==0)
@@ -222,18 +257,15 @@ private:
 
     void initVariables()
     {
-        this->bohater.set(this->videoMode);
+        this->bohater=new Bohater();
+        this->bohater->set(this->videoMode);
         this->window = nullptr;
-        this->potwor->set(this->videoMode);
-        this->bagno->set(this->videoMode);
-        /*for(int i=0;i<10;i++)
-        {
-            potwor->define();
-            bagno->define();
-            this->v_o.emplace_back(*potwor);
-            this->v_o.emplace_back(*bagno);
-        }*/
         for(int i=0;i<10;i++)
+        {
+            this->v_o.emplace_back(make_unique<Potwor>(this->videoMode));
+            this->v_o.emplace_back(make_unique<Bagno>(this->videoMode));
+        }
+        /*for(int i=0;i<10;i++)
         {
             this->potwor->define();
             this->v_p.push_back(*potwor);
@@ -242,7 +274,7 @@ private:
         {
             this->bagno->define();
             this->v_b.push_back(*bagno);
-        }
+        }*/
         win.setSize(sf::Vector2f(94,80));
         win.setPosition(706,0);
         win.setFillColor(sf::Color::Green);
@@ -257,12 +289,10 @@ private:
         this->view.setSize(this->videoMode.width,this->videoMode.height);
     }
 public:
-    //vector<Object> v_o;
-    vector<Potwor> v_p;
-    vector<Bagno> v_b;
-    Bohater bohater;
-    Potwor *potwor=new Potwor;
-    Bagno *bagno=new Bagno;
+    vector<unique_ptr<Object>> v_o;
+    //vector<Potwor> v_p;
+    //vector<Bagno> v_b;
+    Bohater *bohater;
     sf::Mouse mouse;
     sf::Time collision_time;
     sf::Clock collision_clock;
@@ -297,23 +327,13 @@ public:
         collision_time=collision_clock.getElapsedTime();
         this->pollEvents();
         this->mouse_position=make_pair(this->mouse.getPosition(*this->window).x,this->mouse.getPosition(*this->window).y);
-        this->bohater.update(elapsed,this->mouse_position);
-        for(int i=0;i<this->v_p.size();i++)
+        this->bohater->update(elapsed,this->mouse_position);
+        for(int i=0;i<this->v_o.size();i++)
         {
-            this->v_p[i].update();
-            if(this->bohater.getGlobalBounds().intersects(this->v_p[i].getGlobalBounds()) && collision_time>=sf::seconds(1))
+            this->v_o[i]->update(elapsed,mouse_position);
+            if(this->bohater->getGlobalBounds().intersects(this->v_o[i]->getGlobalBounds()) && collision_time>=sf::seconds(1))
             {
-                this->bohater.points-=2;
-                this->collision_time=sf::seconds(0);
-                collision_clock.restart();
-            }
-        }
-        for(int i=0;i<this->v_b.size();i++)
-        {
-            this->v_b[i].update();
-            if(this->bohater.getGlobalBounds().intersects(this->v_b[i].getGlobalBounds()) && collision_time>=sf::seconds(1))
-            {
-                this->bohater.points-=2;
+                this->bohater->points-=2;
                 this->collision_time=sf::seconds(0);
                 collision_clock.restart();
             }
@@ -321,24 +341,21 @@ public:
         if(suma>=sf::seconds(1))
         {
             suma=sf::seconds(0);
-            for(int i=0;i<this->v_b.size();i++)
+            for(int i=0;i<this->v_o.size();i++)
             {
-                this->v_b[i].Dzialaj();
-            }for(int i=0;i<this->v_p.size();i++)
-            {
-                this->v_p[i].Dzialaj();
+                this->v_o[i]->Dzialaj();
             }
-            this->bohater.points-=1;
+            this->bohater->points-=1;
         }
         if(sf::Keyboard::isKeyPressed(sf::Keyboard::Q))
         {
-            this->bohater.set(this->videoMode);
+            this->bohater->set(this->videoMode);
         }
-        if(this->bohater.getGlobalBounds().intersects(this->win.getGlobalBounds()) || this->bohater.points==0)
+        if(this->bohater->getGlobalBounds().intersects(this->win.getGlobalBounds()) || this->bohater->points==0)
         {
             this->window->close();
         }
-        cout<<this->bohater.points<<endl;
+        cout<<this->bohater->points<<endl;
         //cout<<this->mouse_position.first<<" "<<this->mouse_position.second<<endl;
     }
     void render()
@@ -346,29 +363,21 @@ public:
         this->window->clear();
 
         //wyswietlam wszystko
-        this->window->draw(bohater.sprite);
-        /*for (int i = 0; i < v_o.size(); i++)
+        this->window->draw(bohater->sprite);
+        for (int i = 0; i < v_o.size(); i++)
         {
-            Potwor &pot = dynamic_cast <Potwor &> (v_o[i]);
-            if (&pot != nullptr)
+            Potwor *pot =dynamic_cast<Potwor *>(v_o[i].get());
+            if (pot != nullptr)
             {
-                this->window->draw(v_o[i]);
+                pot->sprite.setTexture(pot->texture);
+                this->window->draw(*pot);
             }
             else
             {
-                Bagno bg=dynamic_cast<Bagno &>(v_o[i]);
-                this->window->draw(v_o[i]);
+                Bagno *bg=dynamic_cast<Bagno *>(v_o[i].get());
+                bg->sprite.setTexture(bg->texture);
+                this->window->draw(*bg);
             }
-        }*/
-        //Bagno &bagno_1= dynamic_cast<Bagno &>(v_o[0]);
-        //this->window->draw(bagno_1);
-        for(int i=0;i<this->v_p.size();i++)
-        {
-            this->window->draw(this->v_p[i].sprite);
-        }
-        for(int i=0;i<this->v_b.size();i++)
-        {
-            this->window->draw(this->v_b[i].sprite);
         }
         this->window->draw(this->win);
 
