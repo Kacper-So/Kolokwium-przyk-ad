@@ -369,14 +369,12 @@ public:
             Potwor *pot =dynamic_cast<Potwor *>(v_o[i].get());
             if (pot != nullptr)
             {
-                pot->sprite.setTexture(pot->texture);
-                this->window->draw(*pot);
+                this->window->draw(pot->sprite);
             }
             else
             {
                 Bagno *bg=dynamic_cast<Bagno *>(v_o[i].get());
-                bg->sprite.setTexture(bg->texture);
-                this->window->draw(*bg);
+                this->window->draw(bg->sprite);
             }
         }
         this->window->draw(this->win);
